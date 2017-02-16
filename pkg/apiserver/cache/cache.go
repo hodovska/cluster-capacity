@@ -20,12 +20,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
+	ccreviewapi "github.com/kubernetes-incubator/cluster-capacity/pkg/apis/clustercapacityreview"
 )
 
 type Cache struct {
 	position int
-	reports  []*framework.ClusterCapacityReview
+	reports  []*ccreviewapi.ClusterCapacityReview
 	size     int
 	mux      sync.Mutex
 }
@@ -33,7 +33,7 @@ type Cache struct {
 func NewCache(size int) *Cache {
 	return &Cache{
 		position: 0,
-		reports:  make([]*framework.ClusterCapacityReview, 0),
+		reports:  make([]*ccreviewapi.ClusterCapacityReview, 0),
 		size:     size,
 	}
 }
@@ -42,7 +42,7 @@ func (c *Cache) GetSize() int {
 	return c.size
 }
 
-func (c *Cache) Add(r *framework.ClusterCapacityReview) {
+func (c *Cache) Add(r *ccreviewapi.ClusterCapacityReview) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	if len(c.reports) < c.size {
@@ -57,7 +57,7 @@ func (c *Cache) Add(r *framework.ClusterCapacityReview) {
 	}
 }
 
-func (c *Cache) GetLast(num int) []*framework.ClusterCapacityReview {
+func (c *Cache) GetLast(num int) []*ccreviewapi.ClusterCapacityReview {
 	if len(c.reports) == 0 {
 		return nil
 	}
@@ -70,10 +70,10 @@ func (c *Cache) GetLast(num int) []*framework.ClusterCapacityReview {
 	return sorted[len(sorted)-num:]
 }
 
-func (c *Cache) All() []*framework.ClusterCapacityReview {
+func (c *Cache) All() []*ccreviewapi.ClusterCapacityReview {
 	c.mux.Lock()
 	defer c.mux.Unlock()
-	sorted := make([]*framework.ClusterCapacityReview, 0)
+	sorted := make([]*ccreviewapi.ClusterCapacityReview, 0)
 
 	for i := c.position; i < len(c.reports); i++ {
 		sorted = append(sorted, c.reports[i])
@@ -83,13 +83,13 @@ func (c *Cache) All() []*framework.ClusterCapacityReview {
 	}
 	return sorted
 }
-func (c *Cache) List(since time.Time, to time.Time, num int) []*framework.ClusterCapacityReview {
+func (c *Cache) List(since time.Time, to time.Time, num int) []*ccreviewapi.ClusterCapacityReview {
 	all := c.All()
 	if len(all) == 0 {
 		return nil
 	}
 
-	list := make([]*framework.ClusterCapacityReview, 0)
+	list := make([]*ccreviewapi.ClusterCapacityReview, 0)
 	for i := 0; i < len(all); i++ {
 		if all[i].Status.CreationTimestamp.After(since) && all[i].Status.CreationTimestamp.Before(to) {
 			list = append(list, all[i])

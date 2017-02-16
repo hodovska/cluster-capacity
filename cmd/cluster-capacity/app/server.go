@@ -36,6 +36,7 @@ import (
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/utils"
+	ccreviewapi "github.com/kubernetes-incubator/cluster-capacity/pkg/apis/clustercapacityreview"
 )
 
 var (
@@ -121,7 +122,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		if err != nil {
 			return err
 		}
-		if err := report.Print(conf.Options.Verbose, conf.Options.OutputFormat); err != nil {
+		if err := framework.ClusterCapacityReviewPrint(report, conf.Options.Verbose, conf.Options.OutputFormat); err != nil {
 			return fmt.Errorf("Error while printing: %v", err)
 		}
 		return nil
@@ -149,7 +150,7 @@ func Run(opt *options.ClusterCapacityOptions) error {
 		r.PutStatus(report)
 
 		if conf.Options.Verbose {
-			report.Print(conf.Options.Verbose, conf.Options.OutputFormat)
+			framework.ClusterCapacityReviewPrint(report, conf.Options.Verbose, conf.Options.OutputFormat)
 		}
 	}
 
@@ -179,7 +180,7 @@ func getKubeClient(master string, config string) (clientset.Interface, error) {
 	return kubeClient, nil
 }
 
-func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*framework.ClusterCapacityReview, error) {
+func runSimulator(s *options.ClusterCapacityConfig, syncWithClient bool) (*ccreviewapi.ClusterCapacityReview, error) {
 	mode, err := framework.StringToResourceSpaceMode(s.Options.ResourceSpaceMode)
 	if err != nil {
 		return nil, err
