@@ -16,6 +16,8 @@ limitations under the License.
 
 package framework
 
+// TODO: rename file to review.go
+
 import (
 	"encoding/json"
 	"fmt"
@@ -29,76 +31,23 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/labels"
+
+	ccreviewapi "github.com/kubernetes-incubator/cluster-capacity/pkg/apis/clustercapacityreview"
 )
 
-type ClusterCapacityReview struct {
-	unversioned.TypeMeta
-	Spec   ClusterCapacityReviewSpec
-	Status ClusterCapacityReviewStatus
-}
-
-type ClusterCapacityReviewSpec struct {
-	// the pod desired for scheduling
-	Templates []api.Pod
-
-	// desired number of replicas that should be scheduled
-	// +optional
-	Replicas int32
-
-	PodRequirements []*Requirements
-}
-
-type ClusterCapacityReviewStatus struct {
-	CreationTimestamp time.Time
-	// actual number of replicas that could schedule
-	Replicas int32
-
-	FailReason *ClusterCapacityReviewScheduleFailReason
-
-	// per node information about the scheduling simulation
-	Pods []*ClusterCapacityReviewResult
-}
-
-type ClusterCapacityReviewResult struct {
-	PodName string
-	// numbers of replicas on nodes
-	ReplicasOnNodes map[string]int
-	// reason why no more pods could schedule (if any on this node)
-	// [reason]num of nodes with that reason
-	FailSummary map[string]int
-}
-
-type Resources struct {
-	CPU                *resource.Quantity
-	Memory             *resource.Quantity
-	NvidiaGPU          *resource.Quantity
-	OpaqueIntResources map[api.ResourceName]int64
-}
-
-type Requirements struct {
-	PodName       string
-	Resources     *Resources
-	NodeSelectors map[string]string
-}
-
-type ClusterCapacityReviewScheduleFailReason struct {
-	FailType    string
-	FailMessage string
-}
-
-func getMainFailReason(message string) *ClusterCapacityReviewScheduleFailReason {
+func getMainFailReason(message string) *ccreviewapi.ClusterCapacityReviewScheduleFailReason {
 	slicedMessage := strings.Split(message, "\n")
 	colon := strings.Index(slicedMessage[0], ":")
 
-	fail := &ClusterCapacityReviewScheduleFailReason{
+	fail := &ccreviewapi.ClusterCapacityReviewScheduleFailReason{
 		FailType:    slicedMessage[0][:colon],
 		FailMessage: strings.Trim(slicedMessage[0][colon+1:], " "),
 	}
 	return fail
 }
 
-func getResourceRequest(pod *api.Pod) *Resources {
-	result := Resources{
+func getResourceRequest(pod *api.Pod) *ccreviewapi.Resources {
+	result := ccreviewapi.Resources{
 		CPU:       resource.NewMilliQuantity(0, resource.DecimalSI),
 		Memory:    resource.NewQuantity(0, resource.BinarySI),
 		NvidiaGPU: resource.NewMilliQuantity(0, resource.DecimalSI),
@@ -126,12 +75,12 @@ func getResourceRequest(pod *api.Pod) *Resources {
 	return &result
 }
 
-func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityReviewResult {
+func parsePodsReview(templatePods []*api.Pod, status Status) []*ccreviewapi.ClusterCapacityReviewResult {
 	templatesCount := len(templatePods)
-	result := make([]*ClusterCapacityReviewResult, 0)
+	result := make([]*ccreviewapi.ClusterCapacityReviewResult, 0)
 
 	for i := 0; i < templatesCount; i++ {
-		result = append(result, &ClusterCapacityReviewResult{
+		result = append(result, &ccreviewapi.ClusterCapacityReviewResult{
 			ReplicasOnNodes: make(map[string]int),
 			PodName:         templatePods[i].Name,
 		})
@@ -161,10 +110,10 @@ func parsePodsReview(templatePods []*api.Pod, status Status) []*ClusterCapacityR
 	return result
 }
 
-func getPodsRequirements(pods []*api.Pod) []*Requirements {
-	result := make([]*Requirements, 0)
+func getPodsRequirements(pods []*api.Pod) []*ccreviewapi.Requirements {
+	result := make([]*ccreviewapi.Requirements, 0)
 	for _, pod := range pods {
-		podRequirements := &Requirements{
+		podRequirements := &ccreviewapi.Requirements{
 			PodName:       pod.Name,
 			Resources:     getResourceRequest(pod),
 			NodeSelectors: pod.Spec.NodeSelector,
@@ -181,18 +130,18 @@ func deepCopyPods(in []*api.Pod, out []api.Pod) {
 	}
 }
 
-func getReviewSpec(podTemplates []*api.Pod) ClusterCapacityReviewSpec {
+func getReviewSpec(podTemplates []*api.Pod) ccreviewapi.ClusterCapacityReviewSpec {
 
 	podCopies := make([]api.Pod, len(podTemplates))
 	deepCopyPods(podTemplates, podCopies)
-	return ClusterCapacityReviewSpec{
+	return ccreviewapi.ClusterCapacityReviewSpec{
 		Templates:       podCopies,
 		PodRequirements: getPodsRequirements(podTemplates),
 	}
 }
 
-func getReviewStatus(pods []*api.Pod, status Status) ClusterCapacityReviewStatus {
-	return ClusterCapacityReviewStatus{
+func getReviewStatus(pods []*api.Pod, status Status) ccreviewapi.ClusterCapacityReviewStatus {
+	return ccreviewapi.ClusterCapacityReviewStatus{
 		CreationTimestamp: time.Now(),
 		Replicas:          int32(len(status.Pods)),
 		FailReason:        getMainFailReason(status.StopReason),
@@ -200,15 +149,18 @@ func getReviewStatus(pods []*api.Pod, status Status) ClusterCapacityReviewStatus
 	}
 }
 
-func GetReport(pods []*api.Pod, status Status) *ClusterCapacityReview {
-	return &ClusterCapacityReview{
+func GetReport(pods []*api.Pod, status Status) *ccreviewapi.ClusterCapacityReview {
+	internalReview := &ccreviewapi.ClusterCapacityReview{
 		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ClusterCapacityReview",
-			APIVersion: "",
+			Kind:       ccreviewapi.Kind("ClusterCapacityReview").Kind,
+			APIVersion: ccreviewapi.SchemeGroupVersion.Version,
 		},
 		Spec:   getReviewSpec(pods),
 		Status: getReviewStatus(pods, status),
 	}
+
+	// TODO: return versioned object?
+	return internalReview
 }
 
 func instancesSum(replicasOnNodes map[string]int) int {
@@ -219,7 +171,7 @@ func instancesSum(replicasOnNodes map[string]int) int {
 	return result
 }
 
-func (r *ClusterCapacityReview) prettyPrint(verbose bool) {
+func clusterCapacityReviewPrettyPrint(r *ccreviewapi.ClusterCapacityReview, verbose bool) {
 	if verbose {
 		for _, req := range r.Spec.PodRequirements {
 			fmt.Printf("%v pod requirements:\n", req.PodName)
@@ -264,7 +216,7 @@ func (r *ClusterCapacityReview) prettyPrint(verbose bool) {
 	}
 }
 
-func (r *ClusterCapacityReview) printJson() error {
+func clusterCapacityReviewPrintJson(r *ccreviewapi.ClusterCapacityReview) error {
 	jsoned, err := json.Marshal(r)
 	if err != nil {
 		return fmt.Errorf("Failed to create json: %v", err)
@@ -273,7 +225,7 @@ func (r *ClusterCapacityReview) printJson() error {
 	return nil
 }
 
-func (r *ClusterCapacityReview) printYaml() error {
+func clusterCapacityReviewPrintYaml(r *ccreviewapi.ClusterCapacityReview) error {
 	yamled, err := yaml.Marshal(r)
 	if err != nil {
 		return fmt.Errorf("Failed to create yaml: %v", err)
@@ -282,14 +234,14 @@ func (r *ClusterCapacityReview) printYaml() error {
 	return nil
 }
 
-func (r *ClusterCapacityReview) Print(verbose bool, format string) error {
+func ClusterCapacityReviewPrint(r *ccreviewapi.ClusterCapacityReview, verbose bool, format string) error {
 	switch format {
 	case "json":
-		return r.printJson()
+		return clusterCapacityReviewPrintJson(r)
 	case "yaml":
-		return r.printYaml()
+		return clusterCapacityReviewPrintYaml(r)
 	case "":
-		r.prettyPrint(verbose)
+		clusterCapacityReviewPrettyPrint(r, verbose)
 		return nil
 	default:
 		return fmt.Errorf("output format %q not recognized", format)

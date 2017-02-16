@@ -32,7 +32,7 @@ import (
 	"k8s.io/kubernetes/pkg/util/yaml"
 
 	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
+	ccreviewapi "github.com/kubernetes-incubator/cluster-capacity/pkg/apis/clustercapacityreview"
 )
 
 var TIMELAYOUT = "2006-01-02T15:04:05Z07:00"
@@ -71,7 +71,7 @@ func (r *RestResource) Register(container *restful.Container) {
 		Param(ws.QueryParameter("to", "RFC3339 standard").DataType("string")).
 		Param(ws.QueryParameter("watch", "get notification for new ones").DataType("boolean")).
 		Operation("getStatus").
-		Writes([]framework.ClusterCapacityReview{}))
+		Writes([]ccreviewapi.ClusterCapacityReview{}))
 	container.Add(ws)
 }
 
@@ -96,7 +96,7 @@ type ccBasicInfo struct {
 	Period    int
 }
 
-func (r *RestResource) PutStatus(report *framework.ClusterCapacityReview) {
+func (r *RestResource) PutStatus(report *ccreviewapi.ClusterCapacityReview) {
 	r.watcher.Broadcast(report)
 }
 
@@ -170,7 +170,7 @@ func (r *RestResource) getLastStatus(request *restful.Request, response *restful
 }
 
 // use this to avoid multiple response.WriteHeader calls
-func writeJson(resp *restful.Response, r *framework.ClusterCapacityReview) error {
+func writeJson(resp *restful.Response, r *ccreviewapi.ClusterCapacityReview) error {
 	output, err := json.MarshalIndent(r, " ", " ")
 	if err != nil {
 		return err

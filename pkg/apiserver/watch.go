@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
+	ccreviewapi "github.com/kubernetes-incubator/cluster-capacity/pkg/apis/clustercapacityreview"
 )
 
 var MAXWATCHERS = 10
@@ -28,26 +28,26 @@ var MAXWATCHERS = 10
 const channel_cap = 1
 
 type WatchChannelDistributor struct {
-	inputChannel   chan *framework.ClusterCapacityReview
-	outputChannels []chan *framework.ClusterCapacityReview
+	inputChannel   chan *ccreviewapi.ClusterCapacityReview
+	outputChannels []chan *ccreviewapi.ClusterCapacityReview
 	mux            sync.Mutex
 	remMux         sync.Mutex
 }
 
 func NewWatchChannelDistributor() *WatchChannelDistributor {
 	return &WatchChannelDistributor{
-		inputChannel:   make(chan *framework.ClusterCapacityReview),
-		outputChannels: make([]chan *framework.ClusterCapacityReview, 0),
+		inputChannel:   make(chan *ccreviewapi.ClusterCapacityReview),
+		outputChannels: make([]chan *ccreviewapi.ClusterCapacityReview, 0),
 	}
 }
 
 type WatchChannel struct {
 	w   *WatchChannelDistributor
-	c   chan *framework.ClusterCapacityReview
+	c   chan *ccreviewapi.ClusterCapacityReview
 	pos int
 }
 
-func (wc *WatchChannel) Chan() chan *framework.ClusterCapacityReview {
+func (wc *WatchChannel) Chan() chan *ccreviewapi.ClusterCapacityReview {
 	return wc.c
 }
 
@@ -64,7 +64,7 @@ func (w *WatchChannelDistributor) NewChannel() (*WatchChannel, error) {
 		if w.outputChannels[i] == nil {
 			// set the channel capacity to 1
 			// if the channel is full, do not send anything to it
-			w.outputChannels[i] = make(chan *framework.ClusterCapacityReview, channel_cap)
+			w.outputChannels[i] = make(chan *ccreviewapi.ClusterCapacityReview, channel_cap)
 			return &WatchChannel{
 				w:   w,
 				c:   w.outputChannels[i],
@@ -77,7 +77,7 @@ func (w *WatchChannelDistributor) NewChannel() (*WatchChannel, error) {
 		return nil, fmt.Errorf("Maximum number of watches exceeded\n")
 	}
 
-	ch := make(chan *framework.ClusterCapacityReview, channel_cap)
+	ch := make(chan *ccreviewapi.ClusterCapacityReview, channel_cap)
 	w.outputChannels = append(w.outputChannels, ch)
 	return &WatchChannel{
 		w:   w,
@@ -105,7 +105,7 @@ func (w *WatchChannelDistributor) Run() {
 	}
 }
 
-func (w *WatchChannelDistributor) Broadcast(r *framework.ClusterCapacityReview) {
+func (w *WatchChannelDistributor) Broadcast(r *ccreviewapi.ClusterCapacityReview) {
 	w.inputChannel <- r
 }
 

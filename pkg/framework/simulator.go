@@ -74,6 +74,7 @@ import (
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/restclient"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/store"
 	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework/strategy"
+	ccreviewapi "github.com/kubernetes-incubator/cluster-capacity/pkg/apis/clustercapacityreview"
 )
 
 // Main goal: given a pod with non-zero requested resources how many times the pod can be scheduled in the cluster
@@ -146,7 +147,7 @@ type ClusterCapacity struct {
 	maxSimulated     int
 	simulated        int
 	status           Status
-	report           *ClusterCapacityReview
+	report           *ccreviewapi.ClusterCapacityReview
 
 	// analysis limitation
 	resourceSpaceMode   ResourceSpaceMode
@@ -167,7 +168,7 @@ type Status struct {
 	StopReason string
 }
 
-func (c *ClusterCapacity) Report() *ClusterCapacityReview {
+func (c *ClusterCapacity) Report() *ccreviewapi.ClusterCapacityReview {
 	if c.report == nil {
 		// Preparation before pod sequence scheduling is done
 		pods := make([]*api.Pod,0)
